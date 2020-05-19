@@ -333,15 +333,28 @@ def _get_python_type_from_graphene_argument_instantiation(
     )
 
 
+def _get_graphene_bases(type_info):
+    """
+    Generator which recursively traverses the base classes of the provided type_info looking for
+    an `ObjectType` or `Interface` base class.
+    """
+    for base in type_info.bases:
+        if base.type.fullname in (GRAPHENE_OBJECTTYPE_NAME, GRAPHENE_INTERFACE_NAME):
+            yield base
+        else:
+            yield from _get_graphene_bases(base.type)
+
+            
 def _get_graphene_subclass_runtime_type(type_info: TypeInfo) -> Type:
     """
     Get the type that an `ObjectType`/`Interface` child class should serialize at runtime (via the type argument passed
     to `ObjectType`/`Interface`) (e.g. `ObjectType[Foo] -> Foo`)
     """
+    
+    graphene_bases = _get_graphene_bases(type_info)
 
-    graphene_base = next(
-        base for base in type_info.bases if base.type.fullname in (GRAPHENE_OBJECTTYPE_NAME, GRAPHENE_INTERFACE_NAME)
-    )
+    graphene_base = next(graphene_bases)
+    
     # Note: even if no type argument was passed to `ObjectType`/`Interface` when it was sub-classed, there will still be
     # an item in the `args` list below. It will just be `Any`.
     return graphene_base.args[0]
